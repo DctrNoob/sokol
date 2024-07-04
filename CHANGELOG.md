@@ -1,12 +1,80 @@
 ## Updates
 
+### 19-Jun-2024
+
+Bugfix in the sokol_gfx.h D3D11 backend: calling `sg_update_image()` with a 3D texture
+didn't take the 'depth pitch' into account which then caused invalid texture content
+in small-ish textures. This happened at a specific size cutoff which seems to be GPU
+specific (on my laptop with integrated Intel GPU only for textures smaller than
+32x32xN).
+
+Related ticket: https://github.com/floooh/sokol/issues/1066
+...and PR: https://github.com/floooh/sokol/pull/1065
+
+I also wrote a new sample for investigating the issue and to protect from
+future regressions: https://floooh.github.io/sokol-html5/dyntex3d-sapp.html
+
+### 01-Jun-2024
+
+sokol_imgui.h is now officially supported in the [sokol-zig bindings](https://github.com/floooh/sokol-zig).
+
+This caused a very minor breaking change in the sokol_imgui.h function
+`simgui_add_key_event()`: previously this took a callback function pointer
+which mapped the incoming key code to a Dear ImGui compatible keycode,
+this is now expected to be performed by the caller before calling
+`simgui_add_key_event()`.
+
+Other than the minor API change there's an equally minor internal code cleanup:
+The ImGuiIO method `SetKeyEventNativeData()` is no longer called. This change shouldn't
+have any side effects.
+
+For more details about the Zig sokol_imgui.h also see this example project:
+
+https://github.com/floooh/sokol-zig-imgui-sample
+
+### 14-May-2024
+
+sokol_fetch.h: A minor breaking change in which hopefully doesn't affect anybody:
+
+The function typedef `sfetch_callback_t` has been removed and the type signature
+for the callback has been directly embedded in the `sfetch_request_t` struct. This
+is a preparation for adding sokol_fetch.h to the language bindings (first in
+sokol-zig, see this PR for details: https://github.com/floooh/sokol/pull/1048).
+
+### 13-May-2024
+
+Official bindings for the **D language** have been added, like the other official
+bindings those will be automatically updated on commits to the main repository:
+
+https://github.com/kassane/sokol-d
+
+...this also includes a matching output format `sokol_d` in the sokol-shdc shader
+compiler.
+
+Also see PR https://github.com/floooh/sokol/pull/955.
+
+Many thanks to @kassane for the hard work!
+
+...and a couple minor texture format related fixes in the WebGPU backends in sokol_gfx.h and sokol_app.h:
+
+- merged PR https://github.com/floooh/sokol/pull/1045, this sets 32-bit float textures
+  to filterable if supported (depending on `WGPUFeatureName_Float32Filterable`), many
+  thanks to @jdah!
+- in sokol_app.h, the WebGPU feature detection code has been fixed:
+  - previously, BC and ETC2 texture compression support was mutually exclusive, which
+    was a bug (for instance on Apple Silicon, both formats are available)
+  - the missing ASTC texture compression detection has been added (sokol_gfx.h already
+    checked the WebGPU device for support of ASTC compression, but this code never
+    worked because the feature was not requested when the WebGPU device was created
+    in sokol_app.h
+
 ### 10-May-2024
 
 A minor breaking change regarding ETC2/EAC pixel formats:
 
 - `SG_PIXELFORMAT_ETC2_RG11` has been renamed to `SG_PIXELFORMAT_EAC_RG11`
 - `SG_PIXELFORMAT_ETC2_RG11SN` has been renamed to `SG_PIXELFORMAT_EAC_RG11SN`
-- the pixel formats `SG_PIXELFORMAT_ETC2_R11` and `SG_PIXELFORMAT_ETC2_R11SN` have been added
+- the pixel formats `SG_PIXELFORMAT_EAC_R11` and `SG_PIXELFORMAT_EAC_R11SN` have been added
 - fixed a pixel format mapping bug in WebGPU (the EAC RG11 formats were actually mapped to R11)
 
 See ticket https://github.com/floooh/sokol/issues/1041, and PR https://github.com/floooh/sokol/pull/1044 for details.
