@@ -3434,6 +3434,7 @@ _SOKOL_PRIVATE void _sgimgui_draw_sampler_panel(sgimgui_t* ctx, sg_sampler smp) 
 
 _SOKOL_PRIVATE void _sgimgui_draw_shader_func(const char* title, const sg_shader_function* func) {
     SOKOL_ASSERT(func);
+    igPushID_Str(title);
     igText("%s", title);
     if (func->entry) {
         igText("  entry: %s", func->entry);
@@ -3452,6 +3453,7 @@ _SOKOL_PRIVATE void _sgimgui_draw_shader_func(const char* title, const sg_shader
             igTreePop();
         }
     }
+    igPopID();
 }
 
 _SOKOL_PRIVATE void _sgimgui_draw_shader_panel(sgimgui_t* ctx, sg_shader shd) {
@@ -4210,6 +4212,7 @@ _SOKOL_PRIVATE void _sgimgui_draw_caps_panel(void) {
     igText("    mrt_independent_blend_state: %s", _sgimgui_bool_string(f.mrt_independent_blend_state));
     igText("    mrt_independent_write_mask: %s", _sgimgui_bool_string(f.mrt_independent_write_mask));
     igText("    storage_buffer: %s", _sgimgui_bool_string(f.storage_buffer));
+    igText("    msaa_image_bindings: %s", _sgimgui_bool_string(f.msaa_image_bindings));
     sg_limits l = sg_query_limits();
     igText("\nLimits:\n");
     igText("    max_image_size_2d: %d", l.max_image_size_2d);

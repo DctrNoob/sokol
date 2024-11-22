@@ -1,5 +1,38 @@
 ## Updates
 
+### 19-Nov-2024
+
+- Merged PR https://github.com/floooh/sokol/pull/1155, this allows to use
+  MSAA textures as resource bindings to load individual MSAA samples in
+  shaders. This is an optional feature and isn't supported on the following
+  platform/backend combos:
+
+  - macOS+GL
+  - iOS+GLES3
+  - WebGL2
+  - Android
+
+  You can also check the new feature flag `sg_features.msaa_image_bindings`
+  for support at runtime.
+
+  There's also a new sample https://floooh.github.io/sokol-webgpu/customresolve-sapp.html
+  which demonstrates how to access multisampled textures and the MSAA coverage mask
+  (requires a browser with WebGPU support).
+
+### 13-Nov-2024
+
+- sokol_nuklear.h: merge PR https://github.com/floooh/sokol/pull/1150, this allows to connect the
+  Nuklear mouse cursor handling to the sokol_app.h mouse cursor functions
+  via the new `snk_desc_t.enable_set_mouse_cursor` config flag. When setting
+  this to true you'd also might want to hide the Nuklear software mouse
+  cursor via `nk_style_hide_cursor(ctx)`. Many thanks to @zeozeozeo for the PR!
+
+### 09-Nov-2024
+
+Please be aware of this regression fix in sokol-shdc:
+
+https://github.com/floooh/sokol-tools/blob/master/CHANGELOG.md#09-nov-2024
+
 ### 07-Nov-2024
 
 The sokol-gfx 'bindings cleanup update'. This is a breaking change.
@@ -53,7 +86,7 @@ The detailed API changes in the sokol_gfx.h API:
   have been removed or renamed (those typically shouldn't show up
   in user code)
 - similar to the `sg_bindings` struct, the bindings reflection is no
-  longer split between shader stages:
+  longer split between shader stages in `sg_shader_desc`:
   ```c
   typedef struct sg_shader_desc {
       uint32_t _start_canary;
