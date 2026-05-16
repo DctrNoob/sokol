@@ -6,45 +6,17 @@
 #   - functions are camelCase
 #   - otherwise snake_case
 #-------------------------------------------------------------------------------
-import gen_ir
-import os, shutil, sys
+import os, sys
 import textwrap
 
 import gen_util as util
 
-module_names = {
-    'slog_':    'log',
-    'sg_':      'gfx',
-    'sapp_':    'app',
-    'stm_':     'time',
-    'saudio_':  'audio',
-    'sgl_':     'gl',
-    'sdtx_':    'debugtext',
-    'sshape_':  'shape',
-    'sglue_':   'glue',
-    'sfetch_':  'fetch',
-    'simgui_':  'imgui',
-}
-
-c_source_paths = {
-    'slog_':    'sokol-zig/src/sokol/c/sokol_log.c',
-    'sg_':      'sokol-zig/src/sokol/c/sokol_gfx.c',
-    'sapp_':    'sokol-zig/src/sokol/c/sokol_app.c',
-    'stm_':     'sokol-zig/src/sokol/c/sokol_time.c',
-    'saudio_':  'sokol-zig/src/sokol/c/sokol_audio.c',
-    'sgl_':     'sokol-zig/src/sokol/c/sokol_gl.c',
-    'sdtx_':    'sokol-zig/src/sokol/c/sokol_debugtext.c',
-    'sshape_':  'sokol-zig/src/sokol/c/sokol_shape.c',
-    'sglue_':   'sokol-zig/src/sokol/c/sokol_glue.c',
-    'sfetch_':  'sokol-zig/src/sokol/c/sokol_fetch.c',
-    'simgui_':  'sokol-zig/src/sokol/c/sokol_imgui.c',
-}
+module_root = 'sokol-zig/src/sokol'
+c_root = f'{module_root}/c'
 
 ignores = [
     'sdtx_printf',
     'sdtx_vprintf',
-    'sg_install_trace_hooks',
-    'sg_trace_hooks',
 ]
 
 # functions that need to be exposed as 'raw' C callbacks without a Zig wrapper function
@@ -142,7 +114,7 @@ def as_zig_struct_type(s, prefix):
     outp = '' if s.startswith(prefix) else f'{parts[0]}.'
     for part in parts[1:]:
         # ignore '_t' type postfix
-        if (part != 't'):
+        if part != 't':
             outp += part.capitalize()
     return outp
 
@@ -151,7 +123,7 @@ def as_zig_enum_type(s, prefix):
     parts = s.lower().split('_')
     outp = '' if s.startswith(prefix) else f'{parts[0]}.'
     for part in parts[1:]:
-        if (part != 't'):
+        if part != 't':
             outp += part.capitalize()
     return outp
 
@@ -370,9 +342,9 @@ def gen_struct(decl, prefix):
                     sys.exit(f"ERROR gen_struct is_1d_array_type: {array_type}")
                 t0 = f"[{array_sizes[0]}]{zig_type}"
                 t1 = f"[_]{zig_type}"
-                l(f"    {field_name}: {t0} = {t1}{{{def_val}}} ** {array_sizes[0]},")
+                l(f"    {field_name}: {t0} = @splat({def_val}),")
             elif util.is_const_void_ptr(array_type):
-                l(f"    {field_name}: [{array_sizes[0]}]?*const anyopaque = [_]?*const anyopaque{{null}} ** {array_sizes[0]},")
+                l(f"    {field_name}: [{array_sizes[0]}]?*const anyopaque = @splat(null),")
             else:
                 sys.exit(f"ERROR gen_struct: array {field_name}: {field_type} => {array_type} [{array_sizes[0]}]")
         elif util.is_2d_array_type(field_type):
@@ -387,7 +359,7 @@ def gen_struct(decl, prefix):
             else:
                 sys.exit(f"ERROR gen_struct is_2d_array_type: {array_type}")
             t0 = f"[{array_sizes[0]}][{array_sizes[1]}]{zig_type}"
-            l(f"    {field_name}: {t0} = [_][{array_sizes[1]}]{zig_type}{{[_]{zig_type}{{{def_val}}} ** {array_sizes[1]}}} ** {array_sizes[0]},")
+            l(f"    {field_name}: {t0} = @splat(@splat({def_val})),")
         else:
             sys.exit(f"ERROR gen_struct: {field_name}: {field_type};")
     l("};")
@@ -473,8 +445,10 @@ def pre_parse(inp):
             for item in decl['items']:
                 enum_items[enum_name].append(as_enum_item_name(item['name']))
 
-def gen_imports(inp, dep_prefixes):
+def gen_imports(inp):
     l('const builtin = @import("builtin");')
+    dep_prefixes = inp['dep_prefixes']
+    module_names = inp['module_names']
     for dep_prefix in dep_prefixes:
         dep_module_name = module_names[dep_prefix]
         l(f'const {dep_prefix[:-1]} = @import("{dep_module_name}.zig");')
@@ -520,13 +494,13 @@ def gen_helpers(inp):
         l('}')
         l('')
 
-def gen_module(inp, dep_prefixes, opt={}):
+def gen_module(inp, tiger_style):
     l('// machine generated, do not edit')
     if inp.get('comment'):
         l('')
         c(inp['comment'], comment="//")
     l('')
-    gen_imports(inp, dep_prefixes)
+    gen_imports(inp)
     gen_helpers(inp)
     pre_parse(inp)
     prefix = inp['prefix']
@@ -542,27 +516,16 @@ def gen_module(inp, dep_prefixes, opt={}):
                     gen_enum(decl, prefix)
                 elif kind == 'func':
                     gen_func_c(decl, prefix)
-                    tiger_style = opt.get('tiger-style', False)
                     gen_func_zig(decl, prefix, tiger_style=tiger_style)
 
 def prepare():
-    print('=== Generating Zig bindings:')
-    if not os.path.isdir('sokol-zig/src/sokol'):
-        os.makedirs('sokol-zig/src/sokol')
-    if not os.path.isdir('sokol-zig/src/sokol/c'):
-        os.makedirs('sokol-zig/src/sokol/c')
+    util.prepare('Zig', module_root, c_root)
 
-def gen(c_header_path, c_prefix, dep_c_prefixes, opt={}):
-    if not c_prefix in module_names:
-        print(f' >> warning: skipping generation for {c_prefix} prefix...')
-        return
-    module_name = module_names[c_prefix]
-    c_source_path = c_source_paths[c_prefix]
-    print(f'  {c_header_path} => {module_name}')
+def gen(opts):
     reset_globals()
-    shutil.copyfile(c_header_path, f'sokol-zig/src/sokol/c/{os.path.basename(c_header_path)}')
-    ir = gen_ir.gen(c_header_path, c_source_path, module_name, c_prefix, dep_c_prefixes, with_comments=True)
-    gen_module(ir, dep_c_prefixes, opt)
-    output_path = f"sokol-zig/src/sokol/{ir['module']}.zig"
-    with open(output_path, 'w', newline='\n') as f_outp:
-        f_outp.write(out_lines)
+    success, ir = util.gen_ir(opts, c_root, with_comments=True)
+    if success:
+        gen_module(ir, opts.get('tiger-style', False))
+        output_path = f'{module_root}/{ir['module']}.zig'
+        with open(output_path, 'w', newline='\n') as f_outp:
+            f_outp.write(out_lines)
