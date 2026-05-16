@@ -3071,7 +3071,8 @@ SOKOL_API_IMPL void simgui_render(void) {
             if (pcmd->UserCallback != 0) {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback != ImDrawCallback_ResetRenderState) {
+                const ImGuiPlatformIO* pio = _simgui_imgui_get_platform_io();
+                if (pcmd->UserCallback != pio->DrawCallback_ResetRenderState) {
                     pcmd->UserCallback(cl, pcmd);
                     // need to re-apply all state after calling a user callback
                     sg_reset_state_cache();
