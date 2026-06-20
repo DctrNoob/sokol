@@ -1,5 +1,83 @@
 ## Updates
 
+### 11-Jun-2026
+
+- sokol_app.h linux: fixed a long-standing bug in the sokol-app Linux backend
+  where `sapp_get_clipboard_string()` returned a null pointer instead of an
+  empty string when the clipboard is empty or when an error occurs while
+  querying the clipboard.
+
+  Issue: https://github.com/floooh/sokol/issues/1538
+  PR: https://github.com/floooh/sokol/pull/1539
+
+  Many thanks to @OrfeasPliaridis for reporting the problem!
+
+### 05-Jun-2026
+
+- sokol_app.h android: Update the default framebuffer config from 16-bit
+  depth buffer and no stencil buffer to 24/8 depth-stencil buffer. Also
+  correctly setup multisampling.
+
+  Issue: https://github.com/floooh/sokol/issues/1530
+  PR: https://github.com/floooh/sokol/pull/1531
+
+  Many thanks to @stark26583 for the identifying the issue and providing
+  the initial PR!
+
+### 29-May-2026
+
+- sokol_app.h macos: don't disable 'mouse event coalescing' (coalescing merges
+  high frequency mouse-move events into low frequency events). Coalescing was
+  disabled in March 2021 in an attempt to *reduce* mouse lag, but with high
+  frequency mice this might actually have the opposite effect and introduce
+  extreme mouse lag by flooding the event queue with 'raw' mouse move events (at
+  least this is a current theory, also neither GLFW nor SDL have coalescing
+  disabled, so I guess it's the right thing to do)
+
+  Related ticket: https://github.com/floooh/sokol/issues/1344
+
+  Commit: https://github.com/floooh/sokol/commit/4ad893e4cccb983d431d106547fed2ee42b6b232
+
+### 28-May-2026
+
+Please be aware of the following bug reports and fixes in recent days:
+
+- sokol_gfx.h gl: a `&` vs `&=` confusion when tracking storage image
+  memory barrier bits
+  - Issue: https://github.com/floooh/sokol/issues/1521
+  - Fix: https://github.com/floooh/sokol/commit/1dd48f8614a0044228e4ad5dd70d03a444566195
+- sokol_gfx.h: `texture` vs `storageTexture` confusion when initializing storage
+  image BindGroupLayoutEntry, also in the same PR is a bugfix for the
+  `glBindImageTexture` call in the GL backend (I misunderstood the purpose
+  of the `layered` argument):
+  - Issue: https://github.com/floooh/sokol/issues/1522
+  - Fix: https://github.com/floooh/sokol/issues/1525
+- sokol-shdc: added a missing `#include` when runtime reflection functions
+  are code-generated:
+  - Issue: https://github.com/floooh/sokol-tools/issues/216
+  - Fix: https://github.com/floooh/sokol-tools/pull/217
+
+Many thanks to @mattiasljungstrom, @oyisre and @erincatto for the reports, investigations
+and suggested fixes!
+
+### 24-May-2026
+
+- sokol_app.h vulkan: Properly fix the situation when
+  `vkGetPhysicalDeviceSurfaceCapabilitiesKHR` returns a width and height of zero.
+  This is for instance the case when minimizing the application window on Windows.
+  The Intel Vulkan driver refuses to create a swapchain object in that case
+  (previously resulting in a triggered assert), while the Nvidia Vulkan driver
+  happily creates a zero-sized swapchain object and image objects (there are
+  validation layer errors though). In this situation, sokol_app.h will now go into
+  an 'invalid swapchain state' until the window is deminimized. This builds on top
+  of the recent introduction of 'invalid swapchain passes' in sokol-gfx (such an
+  invalid swapchain pass silently skips all rendering operations).
+
+  Please note that the Vulkan backend should still be considered 'experimental'
+  (especially on Windows).
+
+  PR: https://github.com/floooh/sokol/pull/1518
+
 ### 21-May-2026
 
 - sokol_imgui.h: fix for removal of the deprecated `ImDrawCallback_ResetRenderState`
