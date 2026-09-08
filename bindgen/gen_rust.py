@@ -1,3 +1,4 @@
+# LLM maintained.
 # -------------------------------------------------------------------------------
 #   Generate Rust bindings.
 #
@@ -15,6 +16,8 @@ c_root = f'{module_root}/c'
 
 module_requires_rust_feature = {
     'imgui': 'imgui',
+    'gfximgui': 'imgui',
+    'appimgui': 'imgui',
 }
 
 ignores = [
@@ -48,6 +51,8 @@ overrides = {
     "sdtx_move": "sdtx_move_cursor",
     "sdtx_move_x": "sdtx_move_cursor_x",
     "sdtx_move_y": "sdtx_move_cursor_y",
+
+    "sfetch_continue": "sfetch_continue_fetching",  # 'continue' is reserved in Rust
 
     "sg_image_type::SG_IMAGETYPE_2D": "SG_IMAGEYPE_DIM2",
     "sg_image_type::SG_IMAGETYPE_3D": "SG_IMAGETYPE_DIM3",

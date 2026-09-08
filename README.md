@@ -6,7 +6,7 @@
 
 # Sokol
 
-[**See what's new**](https://github.com/floooh/sokol/blob/master/CHANGELOG.md) (**09-Aug-2026**: sokol_gfx.h: new flexible functions for populating immutable buffers and images)
+[**See what's new**](https://github.com/floooh/sokol/blob/master/CHANGELOG.md) (**06-Sep-2026**: new utility header sokol_cmdbuf.h)
 
 [![Build](/../../actions/workflows/main.yml/badge.svg)](/../../actions/workflows/main.yml) [![Bindings](/../../actions/workflows/gen_bindings.yml/badge.svg)](/../../actions/workflows/gen_bindings.yml) [![build](https://github.com/floooh/sokol-zig/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-zig/actions/workflows/main.yml) [![build](https://github.com/floooh/sokol-nim/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-nim/actions/workflows/main.yml) [![Odin](https://github.com/floooh/sokol-odin/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-odin/actions/workflows/main.yml)[![Rust](https://github.com/floooh/sokol-rust/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-rust/actions/workflows/main.yml)[![Dlang](https://github.com/floooh/sokol-d/actions/workflows/build.yml/badge.svg)](https://github.com/floooh/sokol-d/actions/workflows/build.yml)[![C3](https://github.com/floooh/sokol-c3/actions/workflows/build.yml/badge.svg)](https://github.com/floooh/sokol-c3/actions/workflows/build.yml)
 
@@ -86,6 +86,7 @@ useful details for integrating the Sokol headers into your own project with your
 - [**sokol\_spine.h**](https://github.com/floooh/sokol/blob/master/util/sokol_spine.h): a sokol-style wrapper around the Spine C runtime (http://en.esotericsoftware.com/spine-in-depth)
 - [**sokol\_letterbox.h**](https://github.com/floooh/sokol/blob/master/util/sokol_letterbox.h): compute viewport params for rendering fixed-aspect-ratio content in a variable-aspect-ratio canvas
 - [**sokol\_framebuffer.h**](https://github.com/floooh/sokol/blob/master/util/sokol_framebuffer.h): provides CPU-framebuffers rendered via sokol_gfx.h
+- [**sokol\_cmdbuf.h**](https://github.com/floooh/sokol/blob/master/util/sokol_cmdbuf.h) record/replay for sokol_gfx.h apply/draw/dispatch
 
 ## 'Official' Language Bindings
 

@@ -6763,9 +6763,12 @@ _SOKOL_PRIVATE void _sapp_ios_mtl_init(UIWindowScene* windowScene) {
     CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(_sapp_mtl_color_space());
     _sapp.mtl.layer.colorspace = colorspace;
     CGColorSpaceRelease(colorspace);
+    #if !defined(_SAPP_TVOS)
     if (_sapp.desc.hdr) {
+        // NOTE: CAMetalLayer.wantsExtendedDynamicRangeContent not available on tvOS
         _sapp.mtl.layer.wantsExtendedDynamicRangeContent = YES;
     }
+    #endif
     // NOTE: CAMetalLayer.displaySyncEnabled doesn't exist on iOS
     _sapp.mtl.layer.frame = _sapp.ios.view.layer.frame;
 
@@ -7345,7 +7348,8 @@ EM_JS(void, sapp_js_remove_clipboard_listener, (void), {
 })
 
 EM_JS(void, sapp_js_write_clipboard, (const char* c_str), {
-    const str = UTF8ToString(c_str);
+    // NOTE: wasm64 compatibility (see: https://github.com/floooh/sokol/pull/1590)
+    const str = UTF8ToString(Number(c_str));
     const ta = document.createElement('textarea');
     ta.setAttribute('autocomplete', 'off');
     ta.setAttribute('autocorrect', 'off');
@@ -7450,9 +7454,11 @@ EM_JS(void, sapp_js_remove_dragndrop_listeners, (void), {
 
 EM_JS(void, sapp_js_init, (const char* c_str_target_selector, const char* c_str_document_title), {
     if (c_str_document_title !== 0) {
-        document.title = UTF8ToString(c_str_document_title);
+        // NOTE: wasm64 compatibility (see: https://github.com/floooh/sokol/pull/1590)
+        document.title = UTF8ToString(Number(c_str_document_title));
     }
-    const target_selector_str = UTF8ToString(c_str_target_selector);
+    // NOTE: wasm64 compatibility (see: https://github.com/floooh/sokol/pull/1590)
+    const target_selector_str = UTF8ToString(Number(c_str_target_selector));
     if (Module['canvas'] !== undefined) {
         if (typeof Module['canvas'] === 'object') {
             specialHTMLTargets[target_selector_str] = Module['canvas'];

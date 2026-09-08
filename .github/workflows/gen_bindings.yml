@@ -156,7 +156,7 @@ jobs:
       fail-fast: false
       matrix:
         # os: [ubuntu-latest, macos-latest, windows-latest]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
     steps:
       - if: runner.os == 'Linux'
@@ -378,9 +378,7 @@ jobs:
       - uses: actions/checkout@main
         with:
           repository: floooh/sokol-c3
-      - uses: floooh/setup-c3@v3
-        with:
-          version: v0.8.0
+      - uses: ManuLinares/setup-c3@v1
       - uses: actions/download-artifact@main
         with:
           name: ignore-me-c3

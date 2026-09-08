@@ -1,3 +1,4 @@
+# LLM maintained.
 #-------------------------------------------------------------------------------
 #   gen_c3.py
 #
@@ -17,10 +18,17 @@ module_names = {
     'sapp_':    'sapp',
     'stm_':     'stm',
     'saudio_':  'saudio',
+    'sfetch_':  'sfetch',
+    'simgui_':  'simgui',
+    'sgimgui_': 'sgimgui',
+    'sappimgui_': 'sappimgui',
     'sgl_':     'sgl',
     'sdtx_':    'sdtx',
     'sshape_':  'sshape',
     'sglue_':   'sglue',
+    'sfb_':     'sfb',
+    'slbx_':    'slbx',
+    'scb_':     'scb',
 }
 
 ignores = [
@@ -33,6 +41,7 @@ ignores = [
 overrides = {
     # `any` is treated specially in C3.
     'any': '_any',
+    'sfetch_continue':                      'sfetch_continue_fetching',  # 'continue' is reserved in C3
     # Constants must be uppercase - lowercase `x` is not allowed.
     'SG_PIXELFORMAT_ASTC_4x4_RGBA': 'SG_PIXELFORMAT_ASTC_4X4_RGBA',
     'SG_PIXELFORMAT_ASTC_4x4_SRGBA': 'SG_PIXELFORMAT_ASTC_4X4_SRGBA',
@@ -108,6 +117,8 @@ aliases = {
         ("EventDataCb", "fn void(SappEvent*, void*)"),
     "void (*)(const sapp_html5_fetch_response *)":
         ("ResponseCb", "fn void(SappHtml5FetchResponse*)"),
+    "void (*)(const sfetch_response_t *)":
+        ("ResponseCb", "fn void(SfetchResponse*)"),
     "void (*)(float *, int, int)":
         ("StreamCb", "fn void(float*, CInt, CInt)"),
     "void (*)(float *, int, int, void *)":
@@ -360,7 +371,7 @@ def gen_c_imports(inp):
             args = funcdecl_args_c(decl, prefix)
             res_type = funcdecl_result_c(decl, prefix)
             res_str = 'void' if res_type == '' else res_type
-            l(f'extern fn {res_str} {check_override(as_snake_case(decl["name"], prefix))}({args}) @cname("{decl["name"]}");')
+            l(f'extern fn {res_str} {as_snake_case(check_override(decl["name"]), prefix)}({args}) @cname("{decl["name"]}");')
     l('')
 
 def gen_function_pointer_aliases():

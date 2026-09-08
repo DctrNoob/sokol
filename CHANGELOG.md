@@ -1,5 +1,177 @@
 ## Updates
 
+### 07-Sep-2026
+
+Language bindings:
+
+- sokol_fetch.h has now been added to all bindings which missed
+  the header so far (C3, Jai, Nim, Odin, Rust).
+
+  Main PR: https://github.com/floooh/sokol/pull/1596
+
+- bindings for sokol_imgui.h, sokol_gfx_imgui.h and sokol_app_imgui.h
+  have been added to the language bindings which didn't have them so far
+  (C3, Jai, Nim, Odin, Rust), but without the out-of-the-box
+  build system integration of the Zig and D bindings. Instead the
+  user must take care of integrating Dear ImGui into the project
+  themselves by following new instructions in the readme.
+
+  Main PR: https://github.com/floooh/sokol/pull/1597
+
+### 06-Sep-2026
+
+Added a new header `sokol_cmdbuf.h`. This implements a simple record/replay
+mechanism for sokol_gfx.h functions that need to be issued inside a
+render or compute pass and that way allows to move those calls outside
+of passes.
+
+For more imformation see the header documentation in [util/sokol_cmdbuf.h](https://github.com/floooh/sokol/blob/master/util/sokol_cmdbuf.h),
+and for a usage example the new sample [cmdbuf-sapp](https://floooh.github.io/sokol-html5/cmdbuf-sapp.html).
+
+Planning ticket: https://github.com/floooh/sokol/issues/1557
+
+PR: https://github.com/floooh/sokol/pull/1593
+
+The new header has also been added to all language bindings.
+
+### 30-Aug-2026
+
+sokol_gfx.h: the next implementation step of the new resource update API:
+
+The 'stream-update' mode for buffers and images has been replaced with
+a 'write-transient' mode. Write-transient resources must be written
+with CPU-side data in the same frame that data is consumed by the GPU
+(e.g. the data will not survive into the next frame).
+
+This is a breaking change for 'streaming resources', use the following
+change recipe to migrate code over to the write-transient update mode:
+
+- When creating buffers and images, change the usage flag `.usage.stream_update = true`
+to `.usage.write_transient = true`.
+- Replace `sg_update_buffer()` calls with `sg_write_buffer_transient()`,
+e.g. old:
+    ```c
+    sg_update_buffer(buf, &(sg_range){ .ptr = data_ptr, .size = data_size });
+    ```
+    New:
+    ```c
+    sg_write_buffer_transient(&(sg_write_buffer_desc){
+        .src.data = { .ptr = data_ptr, .size = data_size },
+        .dst.buffer = buf,
+    });
+    ```
+- Replace `sg_update_image()` calls with `sg_write_image_transient()`,
+e.g. old:
+    ```c
+    sg_update_image(img, &(sg_image_data){
+        .mip_level[0] = { .ptr = mip_data_ptr, .size = mip_data_size }
+    });
+    ```
+    New:
+    ```c
+    sg_write_image_transient(&(sg_write_image_desc){
+        .src.data = { .ptr = mip_data_ptr, .size = mip_data_size },
+        .dst.image = img,
+    });
+    ```
+- Note that the `sg_write_image_transient()` and `sg_write_buffer_transient()`
+functions slightly differ in behaviour compared to the old update functions:
+    - The write-transient functions can be called multiple times per frame,
+      but only before the buffer or image is first used in the same frame. If you
+      have been using an intermediate memory buffer to scatter-gather data snippets
+      in order to do a single update call per frame before, this might be a good
+      opportunity to get rid of the intermediate memory buffer and use multiple
+      write-transient calls instead, but be aware of the downsides:
+        - many small updates are still much less efficient than few bigger updates
+        - be aware of the 4-byte alignment requirement for the destination buffer
+          offset in `sg_write_buffer_transient()` (this is usually only a problem
+          for index buffers with 16-bit indices)
+    - Partial updates are possible, e.g. a buffer or image can be incrementally
+      populated with data snippets.
+- Also note that interleaving buffer updates and rendering via
+  `sg_append_buffer()` is no longer possible for write-transient resources (this
+  was never recommended because it incurred a very expensive lock-stall on some
+  backend 3D APIs). The plan to help with such interleaved update/render scenarios
+  is by introducing a new `sokol_cmdbuf.h` header (see:
+  https://github.com/floooh/sokol/issues/1557).
+
+For the full details, read the updated header documentation: search for
+`sg_write_buffer_transient` and `sg_write_image_transient` in the doc
+header of sokol_gfx.h, and read the documentation of the structs
+`sg_write_buffer_desc` and `sg_write_image_desc`.
+
+Also see the updated sokol-samples (WebGPU capable browser needed).
+
+For `sg_write_buffer_transient`:
+
+- [instancing](https://floooh.github.io/sokol-webgpu/instancing-sapp-ui.html)
+- [instancing-pull](https://floooh.github.io/sokol-webgpu/instancing-pull-sapp-ui.html)
+- [ozz-storagebuffer](https://floooh.github.io/sokol-webgpu/ozz-storagebuffer-sapp.html)
+- [slug](https://floooh.github.io/sokol-webgpu/slug-sapp.html)
+- [box3d-simple](https://floooh.github.io/sokol-webgpu/box3d-simple-sapp.html)
+
+...and for `sg_write_image_transient`:
+
+- [dyntex](https://floooh.github.io/sokol-webgpu/dyntex-sapp-ui.html)
+- [dyntex3d](https://floooh.github.io/sokol-webgpu/dyntex3d-sapp.html)
+- [ozz-skin](https://floooh.github.io/sokol-webgpu/ozz-skin-sapp.html)
+- [plmpeg](https://floooh.github.io/sokol-webgpu/plmpeg-sapp.html)
+
+The following 'tier-2' headers have been updated to use `sg_write_buffer_transient`:
+
+- [sokol_imgui.h](https://github.com/floooh/sokol/blob/master/util/sokol_imgui.h)
+- [sokol_nuklear.h](https://github.com/floooh/sokol/blob/master/util/sokol_nuklear.h)
+- [sokol_gl.h](https://github.com/floooh/sokol/blob/master/util/sokol_gl.h)
+- [sokol_debugtext.h](https://github.com/floooh/sokol/blob/master/util/sokol_debugtext.h)
+- [sokol_spine.h](https://github.com/floooh/sokol/blob/master/util/sokol_spine.h)
+
+
+### 28-Aug-2026
+
+- sokol_gfx/app/fetch.h emscripten: fix a wasm64 compatibility issue of the
+  Emscripten helper function `UTF8toString()`. For details see:
+  https://github.com/floooh/sokol/pull/1590.
+
+  Many thanks to @schaten for the PR!
+
+### 26-Aug-2026
+
+- sokol_gfx.h wgpu: small but important bug-fix in the WebGPU backend when using
+  sparse uniform-block bindslots.
+
+  Ticket: https://github.com/floooh/sokol/issues/1586
+  PR: https://github.com/floooh/sokol/pull/1587
+
+  New regression sample: https://floooh.github.io/sokol-webgpu/sparse-ub-slots-sapp.html
+
+  Many thanks to @bgourlie for the bug report!
+
+### 18-Aug-2026
+
+- sokol_gfx_imgui.h: fix a potential buffer overrun when the sokol_gfx.h resource pools
+  are filled up to the last slot, this was caused by off-by-one error when allocating
+  the associated pools on the sokol_gfx_imgui.h side. In general all the related
+  code with pool slot lookups is now much cleaner and robust (like new debug-mode range
+  checks via asserts).
+
+  Ticket: https://github.com/floooh/sokol/issues/1584
+  PR: https://github.com/floooh/sokol/pull/1585
+
+### 17-Aug-2026
+
+- In sokol_gfx.h fixed broken storage image validation (this was a regression from the
+recent write-unsealed update).
+
+  Ticket: https://github.com/floooh/sokol/issues/1583
+
+- sokol_spine.h: fixed a bug in the embedded `sg_shader_desc` struct for D3D11/HLSL
+where the fragment shader uniform block was set to the wrong HLSL bindslot. This
+caused the wrong pre-multiplied-alpha mode to be selected in the shader.
+
+  Ticket: https://github.com/floooh/sokol/issues/1582
+
+Many thanks to @mattiasljungstrom for the detailed bug reports!
+
 ### 10-Aug-2026
 
 sokol_gfx.h: in sg_make_pipeline, the decision whether 'vertex attribute
@@ -17,7 +189,7 @@ Also note a couple of other minor fixes that happened today:
 - in the WebGPU backend, fixed an edge case in the index-buffer bindings cache (the index format wasn't
   taken in account): https://github.com/floooh/sokol/commit/e309617e1331ac554906d9b3ff79eee59b482c55
 
-Also the sokol-nim bindings and example are currently being updated for 'Nim-next' (Nimony),
+Also the sokol-nim bindings and examples are currently being updated for 'Nim-next' (Nimony),
 thanks to @leiserfg for taking care of that!
 
 ### 09-Aug-2026
@@ -111,7 +283,7 @@ updates roughly in this order:
 
 - in the sokol_app.h vulkan backend, a DebugUtilsMessenger object is now created
   (in debug build mode) which routes messages from the Vulkan driver and
-  validation layers to the installing sokol-app logging function.
+  validation layers to the installed sokol-app logging function.
 - the sokol_gfx_imgui.h header has been updated for the new write-unsealed
   types and functions
 
