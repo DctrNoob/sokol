@@ -1,5 +1,37 @@
 ## Updates
 
+### 12-Sep-2026
+
+- sokol_gfx.h mtl: fix for some older Apple GPUs (used on tvOS devices)
+  not supporting base-vertex/instance draws. Unfortunately the baseVertex/baseInstance
+  variant of the Metal drawPrimitive doesn't have a silent fallback on such devices when
+  baseVertex and baseInstance are zero, but instead throws an error as soon as
+  the method is called, which then required two separate code paths in the
+  sokol-gfx Metal backend.
+
+  PR: https://github.com/floooh/sokol/pull/1601
+
+  Many thanks to @tomasandrle for the PR!
+
+  PS: I also forgot to mention another recently merged PR by @tomasandrle with
+  a minor tvOS specific event handling behaviour change in sokol_app.h's
+  iOS backend: https://github.com/floooh/sokol/pull/1600
+
+### 11-Sep-2026
+
+- sokol_gfx.h: the validation layer checks which make sure that
+  `sg_write_*_transient()` has been called at least once for a write-transient
+  resource in the same frame have been moved from `sg_apply_bindings()` into
+  `sg_draw/draw_ex/dispatch()`. This fixes a catch-22 when a per-frame update into a
+  write-transient buffer would drop down to zero bytes. Additionally some minor
+  cleanup code in the Vulkan backend around resource access flags.
+
+  See ticket https://github.com/floooh/sokol/issues/1598 for details.
+
+  PR: https://github.com/floooh/sokol/pull/1599
+
+  Many thanks to @DctrNoob for raising the issue!
+
 ### 07-Sep-2026
 
 Language bindings:
@@ -25,7 +57,7 @@ mechanism for sokol_gfx.h functions that need to be issued inside a
 render or compute pass and that way allows to move those calls outside
 of passes.
 
-For more imformation see the header documentation in [util/sokol_cmdbuf.h](https://github.com/floooh/sokol/blob/master/util/sokol_cmdbuf.h),
+For more information see the header documentation in [util/sokol_cmdbuf.h](https://github.com/floooh/sokol/blob/master/util/sokol_cmdbuf.h),
 and for a usage example the new sample [cmdbuf-sapp](https://floooh.github.io/sokol-html5/cmdbuf-sapp.html).
 
 Planning ticket: https://github.com/floooh/sokol/issues/1557
