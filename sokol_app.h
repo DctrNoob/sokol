@@ -3184,11 +3184,13 @@ typedef struct {
     Window root;
     Colormap colormap;
     Window window;
+    bool window_focused;
     Cursor hidden_cursor;
     Cursor standard_cursors[_SAPP_MOUSECURSOR_NUM];
     Cursor custom_cursors[_SAPP_MOUSECURSOR_NUM];
     int window_state;
     float dpi;
+    bool requested_mouse_lock;
     unsigned char error_code;
     Atom UTF8_STRING;
     Atom CLIPBOARD;
@@ -8448,10 +8450,6 @@ _SOKOL_PRIVATE bool _sapp_gl_select_fbconfig(_sapp_gl_fbselect* fbselect, const 
     if (desired->doublebuffer != current->doublebuffer) {
         return false;
     }
-    if (desired->srgb_capable != current->srgb_capable) {
-        return false;
-    }
-
     if ((desired->alpha_bits > 0) && (current->alpha_bits == 0)) {
         missing++;
     }
@@ -8459,6 +8457,9 @@ _SOKOL_PRIVATE bool _sapp_gl_select_fbconfig(_sapp_gl_fbselect* fbselect, const 
         missing++;
     }
     if ((desired->stencil_bits > 0) && (current->stencil_bits == 0)) {
+        missing++;
+    }
+    if (desired->srgb_capable && !current->srgb_capable) {
         missing++;
     }
     if ((desired->samples > 0) && (current->samples == 0)) {
@@ -8494,6 +8495,11 @@ _SOKOL_PRIVATE bool _sapp_gl_select_fbconfig(_sapp_gl_fbselect* fbselect, const 
     }
     if (desired->stencil_bits != -1) {
         extra_diff += (desired->stencil_bits - current->stencil_bits) * (desired->stencil_bits - current->stencil_bits);
+    }
+    // if srgb is not requested, still accept srgb-formats, some GL drivers
+    // report only SRGB pixel formats
+    if (!desired->srgb_capable && current->srgb_capable) {
+        extra_diff++;
     }
     if (desired->samples != -1) {
         extra_diff += (desired->samples - current->samples) * (desired->samples - current->samples);
@@ -8534,9 +8540,6 @@ _SOKOL_PRIVATE const _sapp_gl_fbconfig* _sapp_gl_choose_fbconfig(const _sapp_gl_
         if (desired->doublebuffer != current->doublebuffer) {
             continue;
         }
-        if (desired->srgb_capable != current->srgb_capable) {
-            continue;
-        }
         missing = 0;
         if (desired->alpha_bits > 0 && current->alpha_bits == 0) {
             missing++;
@@ -8545,6 +8548,9 @@ _SOKOL_PRIVATE const _sapp_gl_fbconfig* _sapp_gl_choose_fbconfig(const _sapp_gl_
             missing++;
         }
         if (desired->stencil_bits > 0 && current->stencil_bits == 0) {
+            missing++;
+        }
+        if (desired->srgb_capable && !current->srgb_capable) {
             missing++;
         }
         if (desired->samples > 0 && current->samples == 0) {
@@ -8580,6 +8586,9 @@ _SOKOL_PRIVATE const _sapp_gl_fbconfig* _sapp_gl_choose_fbconfig(const _sapp_gl_
         }
         if (desired->stencil_bits != -1) {
             extra_diff += (desired->stencil_bits - current->stencil_bits) * (desired->stencil_bits - current->stencil_bits);
+        }
+        if (!desired->srgb_capable && current->srgb_capable) {
+            extra_diff++;
         }
         if (desired->samples != -1) {
             extra_diff += (desired->samples - current->samples) * (desired->samples - current->samples);
@@ -9226,7 +9235,7 @@ _SOKOL_PRIVATE void _sapp_wgl_load_extensions(void) {
     _sapp.wgl.arb_create_context_profile = _sapp_wgl_ext_supported("WGL_ARB_create_context_profile");
     _sapp.wgl.ext_swap_control = _sapp_wgl_ext_supported("WGL_EXT_swap_control");
     _sapp.wgl.arb_pixel_format = _sapp_wgl_ext_supported("WGL_ARB_pixel_format");
-    _sapp.wgl.arb_framebuffer_srgb = _sapp_wgl_ext_supported("WGL_ARB_framebuffer_sRGB");
+    _sapp.wgl.arb_framebuffer_srgb = _sapp_wgl_ext_supported("WGL_ARB_framebuffer_sRGB") || _sapp_wgl_ext_supported("WGL_EXT_framebuffer_sRGB");
     _sapp.wgl.MakeCurrent(_sapp.wgl.msg_dc, 0);
     _sapp.wgl.DeleteContext(rc);
 }
@@ -12781,6 +12790,10 @@ _SOKOL_PRIVATE void _sapp_glx_init(void) {
     }
     _sapp.glx.ARB_multisample = _sapp_glx_extsupported("GLX_ARB_multisample", exts);
     _sapp.glx.ARB_framebuffer_srgb = _sapp_glx_extsupported("GLX_ARB_framebuffer_sRGB", exts);
+    if (!_sapp.glx.ARB_framebuffer_srgb) {
+        // also check EXT just to be sure (for instance the NVIDIA Windows GL driver only supports EXT_framebuffer_sRGB)
+        _sapp.glx.ARB_framebuffer_srgb = _sapp_glx_extsupported("GLX_EXT_framebuffer_sRGB", exts);
+    }
     if (_sapp_glx_extsupported("GLX_ARB_create_context", exts)) {
         _sapp.glx.CreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC) _sapp_glx_getprocaddr("glXCreateContextAttribsARB");
         _sapp.glx.ARB_create_context = 0 != _sapp.glx.CreateContextAttribsARB;
@@ -13161,47 +13174,6 @@ _SOKOL_PRIVATE void _sapp_x11_update_cursor(sapp_mouse_cursor cursor, bool shown
     XFlush(_sapp.x11.display);
 }
 
-_SOKOL_PRIVATE void _sapp_x11_lock_mouse(bool lock) {
-    if (lock == _sapp.mouse.locked) {
-        return;
-    }
-    _sapp.mouse.dx = 0.0f;
-    _sapp.mouse.dy = 0.0f;
-    _sapp.mouse.locked = lock;
-    if (_sapp.mouse.locked) {
-        if (_sapp.x11.xi.available) {
-            XIEventMask em;
-            unsigned char mask[XIMaskLen(XI_RawMotion)] = { 0 }; // XIMaskLen is a macro
-            em.deviceid = XIAllMasterDevices;
-            em.mask_len = sizeof(mask);
-            em.mask = mask;
-            XISetMask(mask, XI_RawMotion);
-            XISelectEvents(_sapp.x11.display, _sapp.x11.root, &em, 1);
-        }
-        XGrabPointer(_sapp.x11.display, // display
-            _sapp.x11.window,           // grab_window
-            True,                       // owner_events
-            ButtonPressMask | ButtonReleaseMask | PointerMotionMask,    // event_mask
-            GrabModeAsync,              // pointer_mode
-            GrabModeAsync,              // keyboard_mode
-            _sapp.x11.window,           // confine_to
-            _sapp.x11.hidden_cursor,    // cursor
-            CurrentTime);               // time
-    } else {
-        if (_sapp.x11.xi.available) {
-            XIEventMask em;
-            unsigned char mask[] = { 0 };
-            em.deviceid = XIAllMasterDevices;
-            em.mask_len = sizeof(mask);
-            em.mask = mask;
-            XISelectEvents(_sapp.x11.display, _sapp.x11.root, &em, 1);
-        }
-        XWarpPointer(_sapp.x11.display, None, _sapp.x11.window, 0, 0, 0, 0, (int) _sapp.mouse.x, _sapp.mouse.y);
-        XUngrabPointer(_sapp.x11.display, CurrentTime);
-    }
-    XFlush(_sapp.x11.display);
-}
-
 _SOKOL_PRIVATE void _sapp_x11_set_clipboard_string(const char* str) {
     SOKOL_ASSERT(_sapp.clipboard.enabled && _sapp.clipboard.buffer);
     _sapp.clipboard.buffer[0] = 0;
@@ -13451,6 +13423,84 @@ _SOKOL_PRIVATE int _sapp_x11_get_window_state(void) {
         XFree(state);
     }
     return result;
+}
+
+_SOKOL_PRIVATE bool _sapp_x11_window_focused(void) {
+    return _sapp.x11.window_focused;
+}
+
+_SOKOL_PRIVATE void _sapp_x11_lock_mouse(bool lock) {
+    _sapp.x11.requested_mouse_lock = lock;
+}
+
+_SOKOL_PRIVATE void _sapp_x11_do_lock_mouse(void) {
+    int result = XGrabPointer(
+        _sapp.x11.display,          // display
+        _sapp.x11.window,           // grab_window
+        True,                       // owner_events
+        ButtonPressMask | ButtonReleaseMask | PointerMotionMask,    // event_mask
+        GrabModeAsync,              // pointer_mode
+        GrabModeAsync,              // keyboard_mode
+        _sapp.x11.window,           // confine_to
+        _sapp.x11.hidden_cursor,    // cursor
+        CurrentTime);               // time
+    if (result == GrabSuccess) {
+        _sapp.mouse.locked = true;
+        _sapp.mouse.dx = 0.0f;
+        _sapp.mouse.dy = 0.0f;
+        if (_sapp.x11.xi.available) {
+            XIEventMask em;
+            unsigned char mask[XIMaskLen(XI_RawMotion)] = { 0 }; // XIMaskLen is a macro
+            em.deviceid = XIAllMasterDevices;
+            em.mask_len = sizeof(mask);
+            em.mask = mask;
+            XISetMask(mask, XI_RawMotion);
+            XISelectEvents(_sapp.x11.display, _sapp.x11.root, &em, 1);
+        }
+    }
+}
+
+_SOKOL_PRIVATE void _sapp_x11_do_unlock_mouse(void) {
+    if (_sapp.x11.xi.available) {
+        XIEventMask em;
+        unsigned char mask[] = { 0 };
+        em.deviceid = XIAllMasterDevices;
+        em.mask_len = sizeof(mask);
+        em.mask = mask;
+        XISelectEvents(_sapp.x11.display, _sapp.x11.root, &em, 1);
+    }
+
+    _sapp.mouse.dx = 0.0f;
+    _sapp.mouse.dy = 0.0f;
+    _sapp.mouse.locked = false;
+
+    XWarpPointer(_sapp.x11.display, None, _sapp.x11.window, 0, 0, 0, 0, (int)_sapp.mouse.x, (int)_sapp.mouse.y);
+    XUngrabPointer(_sapp.x11.display, CurrentTime);
+}
+
+_SOKOL_PRIVATE void _sapp_x11_update_mouse_lock(void) {
+    // mouse lock can only be active when we're the active window
+    if (!_sapp_x11_window_focused()) {
+        // unlock mouse if currently locked
+        if (_sapp.mouse.locked) {
+            _sapp_x11_do_unlock_mouse();
+        }
+        return;
+    }
+
+    // nothing to do if requested lock state matches current lock state
+    const bool lock = _sapp.x11.requested_mouse_lock;
+    if (lock == _sapp.mouse.locked) {
+        return;
+    }
+
+    // otherwise change into desired state
+    if (lock) {
+        _sapp_x11_do_lock_mouse();
+    } else {
+        _sapp_x11_do_unlock_mouse();
+    }
+    // XFlush will be called right after this function
 }
 
 _SOKOL_PRIVATE uint32_t _sapp_x11_key_modifier_bit(sapp_keycode key) {
@@ -13736,17 +13786,15 @@ _SOKOL_PRIVATE void _sapp_x11_on_genericevent(XEvent* event) {
 _SOKOL_PRIVATE void _sapp_x11_on_focusin(XEvent* event) {
     // NOTE: ignoring NotifyGrab and NotifyUngrab is same behaviour as GLFW
     if ((event->xfocus.mode != NotifyGrab) && (event->xfocus.mode != NotifyUngrab)) {
+        _sapp.x11.window_focused = true;
         _sapp_x11_app_event(SAPP_EVENTTYPE_FOCUSED);
     }
 }
 
 _SOKOL_PRIVATE void _sapp_x11_on_focusout(XEvent* event) {
-    // if focus is lost for any reason, and we're in mouse locked mode, disable mouse lock
-    if (_sapp.mouse.locked) {
-        _sapp_x11_lock_mouse(false);
-    }
     // NOTE: ignoring NotifyGrab and NotifyUngrab is same behaviour as GLFW
     if ((event->xfocus.mode != NotifyGrab) && (event->xfocus.mode != NotifyUngrab)) {
+        _sapp.x11.window_focused = false;
         _sapp_x11_app_event(SAPP_EVENTTYPE_UNFOCUSED);
     }
 }
@@ -14303,6 +14351,7 @@ _SOKOL_PRIVATE void _sapp_linux_run(const sapp_desc* desc) {
             _sapp_x11_process_event(&event);
         }
         _sapp_linux_frame();
+        _sapp_x11_update_mouse_lock();
         XFlush(_sapp.x11.display);
         // handle quit-requested, either from window or from sapp_request_quit()
         if (_sapp.quit_requested && !_sapp.quit_ordered) {

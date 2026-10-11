@@ -11,6 +11,8 @@ set_property(CACHE SOKOL_BACKEND PROPERTY STRINGS SOKOL_GLCORE SOKOL_METAL SOKOL
 option(SOKOL_FORCE_EGL "Force EGL with GLCORE backend" OFF)
 option(USE_ARC "Enable/disable ARC" OFF)
 option(USE_ANALYZER "Enable/disable clang analyzer" OFF)
+# Clang source-based code coverage for the test targets (see coverage.sh)
+option(SOKOL_COVERAGE "Instrument test targets for clang source-based coverage" OFF)
 # Enabled by the *_mock_* presets to route sokol backend headers through the
 # stub libraries in tests/mocks/. Only the matching sokol-<backend>-test
 # executable is built in that mode -- compile tests and sokol-test both pull
@@ -128,6 +130,17 @@ elseif (WINDOWS)
     endif()
 endif()
 
+# Mock mode builds sokol_gfx.h only, against the stub backend libraries. No
+# window-system or GPU libs are needed, and linking the real GL would clash
+# with the GL mock's own function symbols.
+if (BACKEND_MOCK_ONLY)
+    if (LINUX)
+        set(system_libs m dl Threads::Threads)
+    else()
+        set(system_libs)
+    endif()
+endif()
+
 macro(configure_common target)
     if (SOKOL_FORCE_EGL)
         target_compile_definitions(${target} PRIVATE SOKOL_FORCE_EGL)
@@ -135,6 +148,10 @@ macro(configure_common target)
     target_compile_definitions(${target} PRIVATE ${SOKOL_BACKEND})
     target_link_options(${target} PRIVATE ${link_flags})
     target_link_libraries(${target} PRIVATE ${system_libs})
+    if (SOKOL_COVERAGE)
+        target_compile_options(${target} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+        target_link_options(${target} PRIVATE -fprofile-instr-generate)
+    endif()
     target_include_directories(${target} PRIVATE ../.. ../../util)
     target_include_directories(${target} PRIVATE ../ext)
     if (WINDOWS AND SOKOL_BACKEND STREQUAL SOKOL_VULKAN)
@@ -145,6 +162,12 @@ macro(configure_common target)
     # matching mock library in tests/mocks/.
     if (BACKEND_MOCK_ONLY AND SOKOL_BACKEND STREQUAL SOKOL_D3D11)
         target_link_libraries(${target} PRIVATE sokol_d3d11_mock)
+    endif()
+    if (BACKEND_MOCK_ONLY AND (SOKOL_BACKEND STREQUAL SOKOL_GLCORE OR SOKOL_BACKEND STREQUAL SOKOL_GLES3))
+        target_link_libraries(${target} PRIVATE sokol_gl_mock)
+    endif()
+    if (BACKEND_MOCK_ONLY AND SOKOL_BACKEND STREQUAL SOKOL_METAL)
+        target_link_libraries(${target} PRIVATE sokol_metal_mock)
     endif()
 endmacro()
 

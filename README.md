@@ -6,7 +6,7 @@
 
 # Sokol
 
-[**See what's new**](https://github.com/floooh/sokol/blob/master/CHANGELOG.md) (**06-Sep-2026**: new utility header sokol_cmdbuf.h)
+[**See what's new**](https://github.com/floooh/sokol/blob/master/CHANGELOG.md) (**04-Oct-2026**: next resource API rewrite update in sokol_gfx.h (breaking change, also in sokol_imgui.h), also **05-Oct-2026** a critical regression fix in the sokol_app.h GL backend for Windows AMD drivers)
 
 [![Build](/../../actions/workflows/main.yml/badge.svg)](/../../actions/workflows/main.yml) [![Bindings](/../../actions/workflows/gen_bindings.yml/badge.svg)](/../../actions/workflows/gen_bindings.yml) [![build](https://github.com/floooh/sokol-zig/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-zig/actions/workflows/main.yml) [![build](https://github.com/floooh/sokol-nim/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-nim/actions/workflows/main.yml) [![Odin](https://github.com/floooh/sokol-odin/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-odin/actions/workflows/main.yml)[![Rust](https://github.com/floooh/sokol-rust/actions/workflows/main.yml/badge.svg)](https://github.com/floooh/sokol-rust/actions/workflows/main.yml)[![Dlang](https://github.com/floooh/sokol-d/actions/workflows/build.yml/badge.svg)](https://github.com/floooh/sokol-d/actions/workflows/build.yml)[![C3](https://github.com/floooh/sokol-c3/actions/workflows/build.yml/badge.svg)](https://github.com/floooh/sokol-c3/actions/workflows/build.yml)
 
@@ -15,6 +15,8 @@
 - [Live Samples](https://floooh.github.io/sokol-html5/index.html) via WASM ([source](https://github.com/floooh/sokol-samples))
 
 - [Doom Shareware](https://floooh.github.io/doom-sokol/) ported to the Sokol headers ([source](https://github.com/floooh/doom-sokol))
+
+- [Slopa](https://slopa.io) - performant 3D MMORPG, uses sokol realtime rendering
 
 - [Syntonic Dentiforms Redux](https://aras-p.github.io/SyntonicDentiforms/) demo remaster by Aras Pranckevičius ([blog post](https://aras-p.info/blog/2026/04/13/Syntonic-Dentiforms-redux/)).
 
@@ -63,7 +65,7 @@ useful details for integrating the Sokol headers into your own project with your
 
 ## Core libraries
 
-- [**sokol\_gfx.h**](https://github.com/floooh/sokol/blob/master/sokol_gfx.h): 3D-API wrapper (GL/GLES3/WebGL2 + Metal + D3D11 + WebGPU)
+- [**sokol\_gfx.h**](https://github.com/floooh/sokol/blob/master/sokol_gfx.h): 3D-API wrapper (GL/GLES3/WebGL2 + Metal + D3D11 + WebGPU + Vulkan (experimental))
 - [**sokol\_app.h**](https://github.com/floooh/sokol/blob/master/sokol_app.h): app framework wrapper (entry + window + 3D-context + input)
 - [**sokol\_time.h**](https://github.com/floooh/sokol/blob/master/sokol_time.h): time measurement
 - [**sokol\_audio.h**](https://github.com/floooh/sokol/blob/master/sokol_audio.h): minimal buffer-streaming audio playback
