@@ -1,5 +1,68 @@
 ## Updates
 
+### 17-Oct-2026
+
+A small fix has been applied to sokol_imgui.h for Dear ImGui v1.93.0 (backward
+compatible with 1.92.x). Dear ImGui 1.93.0 added a new macOS specifc 'hack' to
+guess the better builtin default font (bitmap vs TTF), and this new guess caused the
+TTF font to be selected on macOS for sokol_imgui.h unless sokol_app.h is
+initialized with `.high_dpi = true` (...and the TTF font looks pretty bad in a
+low-dpi scenario compared to the crisp bitmap font). sokol_imgui.h now
+communicates the actual dpi-scale to Dear ImGui before the default font is
+created so that it no longer needs to 'guess' the correct font. E.g. by default
+(on macOS) the crisp bitmap font is used, and when sokol_app.h is initialized
+with `.high_dpi = true` the TTF font, which looks nicer with native high-dpi
+resolution.
+
+PR: https://github.com/floooh/sokol/pull/1620
+
+Note that the [dcimgui source distribution](https://github.com/floooh/dcimgui)
+is not yet on Dear ImGui v1.93.0 because of a couple of Dear Bindings issues:
+
+- https://github.com/dearimgui/dear_bindings/issues/127
+- https://github.com/dearimgui/dear_bindings/issues/128
+
+### 12-Oct-2026
+
+In sokol_gfx.h, fragment shaders can now write into storage buffers (previously
+writing to storage resources was only allowed in compute passes). This update
+didn't require any public API changes, but you'll need to update `sokol-shdc`
+because trying to use a read/write storage buffer in a fragment shader was a
+compile error before. When using Vulkan you'll also need to update sokol_app.h,
+because the Vulkan device is now created with the required feature
+`fragmentStoresAndAtomics`.
+
+The following restrictions apply:
+
+- Only works on backends with compute support (i.e. `sg_features.compute` is
+  true: D3D11, Metal, WebGPU, Vulkan, GL4.3 and GLES3.1)
+- A read/write storage buffer cannot be used with any other access in the
+  same render pass (e.g. you cannot write to a storage buffer in a fragment
+  shader and then bind the same buffer as vertex-, index- or readonly-storage-
+  buffer in the same render pass - you need to start a new pass for this).
+  Note that this restriction only applies to render passes, mixing readonly
+  and read/write storage access in the same *compute* pass is fine.
+- Storage images are still only writable in compute shaders (this might be
+  added at a later time if there is demand)
+- Vertex shaders still only support reading from storage buffers (this is
+  unlikely to change since WebGPU also doesn't allow storage buffer writes
+  in vertex shaders)
+
+When using the D3D11 backend without `sokol-shdc` you need to be aware of a
+special rule for how sokol bindslots map to HLSL UAV slots (`register(uN)`): those
+must not collide with 'render target slots'. More details are in the updated
+sokol_gfx.h documentation in the section `ON STORAGE BUFFERS` and the doc header
+of the struct `sg_shader_desc`.
+
+When using `sokol-shdc`, the whole thing is quite straightforward. See the new
+sample `histogram-sapp` as an example (requires a WebGPU capable browser):
+
+- [histogram-sapp](https://floooh.github.io/sokol-webgpu/histogram-sapp-ui.html)
+- [C source](https://github.com/floooh/sokol-samples/blob/master/sapp/histogram-sapp.c)
+- [GLSL source](https://github.com/floooh/sokol-samples/blob/master/sapp/histogram-sapp.glsl)
+
+PR link: https://github.com/floooh/sokol/pull/1619
+
 ### 05-Oct-2026
 
 Critical regression bugfix for the GL backend on Windows with AMD GPUs:
