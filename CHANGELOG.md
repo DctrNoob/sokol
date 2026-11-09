@@ -1,5 +1,110 @@
 ## Updates
 
+### 08-Nov-2026
+
+- sokol_gfx.h: Fix a behaviour bug caused by a too broad implementation of the idea
+  that 'sokol-gfx skips draw calls involving invalid resources'. The buggy behaviour
+  was that an `sg_apply_bindings()` with invalid resources, or an invalid
+  `sg_apply_uniforms()` call would skip *all* draw calls until the next
+  `sg_apply_pipeline()`, instead of recovering already with the next
+  valid `sg_apply_bindings()` or `sg_apply_uniforms()` call. The new
+  implementation fixes the problem via separate 'skip-draw-flags' for
+  the applied pipeline, bindings and each uniform block slot.
+
+  Issue: https://github.com/floooh/sokol/issues/1644
+  PR: https://github.com/floooh/sokol/pull/1646
+
+  Many thanks to @jiangbo for discovering and reporting the issue!
+
+### 06-Nov-2026
+
+- sokol_app.h android: the sokol-app Android backend now properly
+  handles the Back button/gesture via a new event `SAPP_EVENTTYPE_ANDROID_BACK`,
+  and additionally the 'programmatic quit' protocol of the dektop backends
+  is implemented. More details on how this all works is in the header
+  documentation at the end of the `APPLICATION QUIT` section.
+
+  PR: https://github.com/floooh/sokol/pull/1641
+
+  Many thanks to @jiangbo and @skylersaleh for the discussion
+  and providing potential solutions!
+
+### 03-Nov-2026
+
+- sokol_app.h macOS: the mouse click to activate an inactive window is
+  now also forwarded to the application, this harmonizes behaviour
+  with Windows and Linux.
+
+  PR: https://github.com/floooh/sokol/pull/1640
+
+  Many thanks to @kkushtel!
+
+### 02-Nov-2026
+
+- sokol_gl.h: now works out-of-the-box when sokol_app.h has
+  been initialized without depth buffer.
+
+  PR: https://github.com/floooh/sokol/pull/1639
+
+### 01-Nov-2026
+
+- sokol_app.h d3d11: The DXGI swapchain buffers are now resized during
+  window resizing like on other platforms. This was disabled so far because
+  of an excessive memory spike when changing the window size
+  quickly (or rather: resizing like a madman). I have now finally
+  found a good and simple solution (TL;DR: during every resize do a
+  ClearState => Flush => IDXGIDevice3::Trim, with the Trim being the
+  important part). The IDXGIDevice3::Trim method is only supported since
+  Win8.1, and I didn't bother with a specific fallback plan for Win7
+  except simply not calling the Trim method.
+  (Win7 is technically still supported by the sokol headers, but I can't
+  test that code path anymore, and I guess it's about time to slowly
+  deprecate it - Microsoft has ended support in 2020 too after all).
+
+  Side effect for other backends: the RESIZE event is now also fired
+  during the modal window resize for GL and WebGPU.
+
+  PR: https://github.com/floooh/sokol/pull/1638
+
+  Fixes: https://github.com/floooh/sokol/issues/853 and https://github.com/floooh/sokol/issues/414
+
+### 31-Oct-2026
+
+- sokol_app.h d3d11/dxgi: when vsync is disabled via `sapp_desc.disable_vsync`,
+  presentation will now happen with `DXGI_PRESENT_ALLOW_TEARING` instead of
+  `DXGI_PRESENT_DO_NOT_WAIT` (with the exception that during the modal window
+  movemenet/resize loop `DXGI_PRESENT_DO_NOT_WAIT` is used, since only this
+  specific mode avoids window system stuttering on NVIDIA drivers).
+
+  Original PR by @sk0pega: https://github.com/floooh/sokol/pull/1628
+
+  Final PR on top of that: https://github.com/floooh/sokol/pull/1636
+
+### 29-Oct-2026
+
+sokol_audio.h linux: sokol-audio on Linux (and FreeBSD) has a new backend which
+talks to the PulseAudio libraries instead of ALSA, and the PulseAudio backend is
+now the default (which automatically gets rid of a couple of old bugs with the
+ALSA backend on some Linux configs).
+
+You need to fix your build setup:
+
+- install the PulseAudio dev-package (e.g. on Debian/Ubuntu: `libpulse-dev`)
+- in the link step, replace `-lasound` with `-lpulse-simple -lpulse`
+
+NOTE: pretty much all Linux desktop systems should support PulseAudio
+out of the box, even when the latest fashion item is called 'PipeWire'.
+On such systems, PulseAudio (and ALSA) compatibility is achieved via
+shim libraries on top of PipeWire. Think of PulseAudio or ALSA as
+the client API, and PipeWire as the actual audio system. On
+FreeBSD the compatibility situation might be a bit more complicated though.
+
+Also: The old ALSA backend is still in sokol_audio.h. To continue using this,
+add a `#define SAUDIO_USE_ALSA (1)` before including the `sokol_audio.h`
+implementation. Please consider the ALSA backend as deprecated though.
+
+PR: https://github.com/floooh/sokol/pull/1635
+
 ### 27-Oct-2026
 
 A small followup update to the recent sokol-gfx resource API updates: it's now
